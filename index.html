@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hero Chess Web</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #333;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #555;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            position: relative;
+        }
+        canvas {
+            background-color: #eee;
+            display: block;
+            border-radius: 10px;
+            touch-action: none; /* Prevent default touch actions like scrolling */
+        }
+        #hand-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100px; /* Fixed height for hand area */
+            margin-top: 10px;
+            background-color: #444;
+            border-radius: 10px;
+            padding: 5px;
+            box-sizing: border-box;
+            overflow-x: auto; /* Allow horizontal scrolling if hand is too big */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        .hand-card {
+            width: 80px; /* SQUARE_SIZE */
+            height: 80px; /* SQUARE_SIZE */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 5px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            flex-shrink: 0; /* Prevent cards from shrinking */
+        }
+        .hand-card img {
+            width: 60px;
+            height: 60px;
+            pointer-events: none; /* Prevent image drag issues */
+        }
+        .hand-card.selected {
+            border-color: yellow;
+            box-shadow: 0 0 10px yellow;
+        }
+        .hand-card.selected-king-ability {
+            border-color: orange;
+            box-shadow: 0 0 10px orange;
+        }
+
+        #title-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 100;
+            border-radius: 15px;
+        }
+        #title-screen h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        #title-screen .option-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #title-screen .option-group label {
+            margin-right: 10px;
+            font-size: 1.1rem;
+            min-width: 150px; /* Ensure labels align */
+            text-align: right;
+        }
+        #title-screen .option-group input[type="text"] {
+            width: 80px;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            color: #333;
+            font-size: 1rem;
+        }
+        #title-screen .option-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+        #title-screen .piece-limits {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        #title-screen .piece-limits .limit-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 10px;
+        }
+        #title-screen .piece-limits .limit-item label {
+            min-width: 30px;
+            text-align: right;
+            margin-right: 5px;
+        }
+        #title-screen .piece-limits .limit-item input {
+            width: 40px;
+        }
+        #title-screen button, #game-over-screen button {
+            padding: 12px 25px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        #title-screen button:hover, #game-over-screen button:hover {
+            background-color: #45a049;
+        }
+        #validation-message {
+            color: red;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            text-align: center;
+            max-width: 80%;
+        }
+        #game-over-message {
+            font-size: 3rem;
+            color: red;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container" class="rounded-xl shadow-2xl p-5 bg-gray-700">
+        <canvas id="chessCanvas"></canvas>
+        <div id="hand-display" class="flex justify-center items-center w-full h-24 mt-4 bg-gray-800 rounded-lg p-1 overflow-x-auto">
+            <!-- Hand cards will be dynamically inserted here -->
+        </div>
+
+        <div id="title-screen" class="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-80 rounded-xl text-white">
+            <h1 class="text-5xl font-bold mb-8">Hero Chess</h1>
+
+            <div class="option-group">
+                <input type="checkbox" id="oneDeckCheckbox" class="rounded-md">
+                <label for="oneDeckCheckbox" class="text-lg">One Deck (Shared Pieces)</label>
+            </div>
+
+            <div class="option-group">
+                <label for="placementRowsInput" class="text-lg">Placement Rows (1-8):</label>
+                <input type="text" id="placementRowsInput" value="3" class="rounded-md px-3 py-2 text-gray-900">
+            </div>
+
+            <div class="option-group">
+                <label for="handSizeInput" class="text-lg">Hand Size (1-8):</label>
+                <input type="text" id="handSizeInput" value="5" class="rounded-md px-3 py-2 text-gray-900">
+            </div>
+
+            <h2 class="text-2xl font-semibold mt-6 mb-4">Max Pieces on Board:</h2>
+            <div class="piece-limits grid grid-cols-3 gap-x-8 gap-y-2">
+                <div class="limit-item">
+                    <label for="limitRook">R:</label>
+                    <input type="text" id="limitRook" value="2" class="rounded-md px-2 py-1 text-gray-900">
+                </div>
+                <div class="limit-item">
+                    <label for="limitKnight">N:</label>
+                    <input type="text" id="limitKnight" value="2" class="rounded-md px-2 py-1 text-gray-900">
+                </div>
+                <div class="limit-item">
+                    <label for="limitBishop">B:</label>
+                    <input type="text" id="limitBishop" value="2" class="rounded-md px-2 py-1 text-gray-900">
+                </div>
+                <div class="limit-item">
+                    <label for="limitQueen">Q:</label>
+                    <input type="text" id="limitQueen" value="1" class="rounded-md px-2 py-1 text-gray-900">
+                </div>
+                <div class="limit-item">
+                    <label for="limitPawn">P:</label>
+                    <input type="text" id="limitPawn" value="10" class="rounded-md px-2 py-1 text-gray-900">
+                </div>
+                <div class="limit-item">
+                    <label for="limitKing">K:</label>
+                    <input type="text" id="limitKing" value="1" class="rounded-md px-2 py-1 text-gray-900">
+                </div>
+            </div>
+
+            <p id="validation-message" class="text-red-500 mt-4 text-sm"></p>
+
+            <button id="startGameButton" class="mt-8 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200">Start Game</button>
+        </div>
+
+        <div id="game-over-screen" class="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-80 rounded-xl text-white hidden">
+            <h2 id="game-over-message" class="text-5xl font-bold mb-8"></h2>
+            <button id="returnToTitleButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200">Return to Title</button>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const SQUARE_SIZE = 80;
+        const BOARD_SIZE = 8 * SQUARE_SIZE;
+        const HAND_HEIGHT = 100; // Space for hand display
+        const FPS = 60;
+
+        // Colors (as RGBA strings for canvas)
+        const WHITE_COLOR = 'rgb(255, 255, 255)';
+        const GREY_COLOR = 'rgb(127, 127, 127)';
+        const LIGHT_BROWN_COLOR = 'rgb(240, 217, 181)';
+        const DARK_BROWN_COLOR = 'rgb(181, 136, 99)';
+        const HIGHLIGHT_COLOR = 'rgba(255, 255, 0, 0.4)'; // Yellow highlight for selected
+        const VALID_HIGHLIGHT_COLOR = 'rgba(0, 255, 0, 0.4)'; // Green highlight for valid moves/spawns
+        const ORANGE_HIGHLIGHT_COLOR = 'rgba(255, 165, 0, 0.4)'; // Orange for second card in king ability
+
+        // Chess pieces (using letters for internal logic)
+        const PIECES_MAP = {
+            'wr': 'R', 'wn': 'N', 'wb': 'B', 'wq': 'Q', 'wk': 'K', 'wp': 'P',
+            'br': 'r', 'bn': 'n', 'bb': 'b', 'bq': 'q', 'bk': 'k', 'bp': 'p'
+        };
+
+        // Load piece images
+        const pieceImages = {};
+        let imagesLoadedCount = 0;
+        const totalImages = Object.keys(PIECES_MAP).length;
+        let allImagesLoaded = false;
+
+        function loadImages() {
+            return new Promise(resolve => {
+                for (const pieceKey in PIECES_MAP) {
+                    const img = new Image();
+                    img.src = `pieces/${pieceKey}.png`; // Assuming 'pieces' folder exists
+                    img.onload = () => {
+                        pieceImages[pieceKey] = img;
+                        imagesLoadedCount++;
+                        if (imagesLoadedCount === totalImages) {
+                            allImagesLoaded = true;
+                            resolve();
+                        }
+                    };
+                    img.onerror = () => {
+                        console.error(`Failed to load image: ${img.src}`);
+                        // Fallback to a placeholder or handle error
+                        // For now, let's just count it as loaded to not block
+                        imagesLoadedCount++;
+                        if (imagesLoadedCount === totalImages) {
+                            allImagesLoaded = true;
+                            resolve();
+                        }
+                    };
+                }
+            });
+        }
+
+        // Game state variables
+        let board = [];
+        let playerHands = {};
+        let playerCards = { 'w': [], 'b': [] };
+
+        let selectedPiece = null;
+        let selectedPos = null; // {row, col}
+        let selectedCardIndex = null;
+        let selectedCardIndexForKingAbility = null;
+        let currentPlayer = 'b'; // Makes white first
+
+        // Game mode mutators
+        let ONE_DECK = false;
+        let PLACEMENT_ROWS = 3;
+        let HAND_SIZE = 5;
+        let PIECE_LIMITS = { 'r': 2, 'n': 2, 'b': 2, 'q': 1, 'p': 10, 'k': 1 };
+        let gameStarted = false;
+
+        // Game end state
+        let gameOver = false;
+        let gameResultMessage = "";
+
+        // DOM elements
+        const canvas = document.getElementById('chessCanvas');
+        const ctx = canvas.getContext('2d');
+        const handDisplay = document.getElementById('hand-display');
+        const titleScreen = document.getElementById('title-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const gameOverMessageElement = document.getElementById('game-over-message');
+        const startGameButton = document.getElementById('startGameButton');
+        const returnToTitleButton = document.getElementById('returnToTitleButton');
+        const oneDeckCheckbox = document.getElementById('oneDeckCheckbox');
+        const placementRowsInput = document.getElementById('placementRowsInput');
+        const handSizeInput = document.getElementById('handSizeInput');
+        const validationMessageElement = document.getElementById('validation-message');
+
+        const pieceLimitInputs = {
+            'r': document.getElementById('limitRook'),
+            'n': document.getElementById('limitKnight'),
+            'b': document.getElementById('limitBishop'),
+            'q': document.getElementById('limitQueen'),
+            'p': document.getElementById('limitPawn'),
+            'k': document.getElementById('limitKing')
+        };
+
+        // Shared deck for 'one deck' mode
+        let sharedDeck = [];
+
+        // Canvas setup
+        canvas.width = BOARD_SIZE;
+        canvas.height = BOARD_SIZE;
+
+        // --- Drawing Functions ---
+        function drawBoard() {
+            // Clear screen
+            ctx.fillStyle = GREY_COLOR;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    let screenRow = row;
+                    let screenCol = col;
+                    if (currentPlayer === 'b') { // Invert board for black player
+                        screenRow = 7 - row;
+                        screenCol = 7 - col;
+                    }
+
+                    const color = (row + col) % 2 === 0 ? LIGHT_BROWN_COLOR : DARK_BROWN_COLOR;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(screenCol * SQUARE_SIZE, screenRow * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+
+                    const piece = board[row][col];
+                    if (piece && pieceImages[piece]) {
+                        const img = pieceImages[piece];
+                        // Center image in the square
+                        ctx.drawImage(img,
+                                      screenCol * SQUARE_SIZE + (SQUARE_SIZE - img.width) / 2,
+                                      screenRow * SQUARE_SIZE + (SQUARE_SIZE - img.height) / 2,
+                                      img.width, img.height);
+                    }
+
+                    // Highlight the selected square (yellow)
+                    if (selectedPos && selectedPos.row === row && selectedPos.col === col) {
+                        ctx.fillStyle = HIGHLIGHT_COLOR;
+                        ctx.fillRect(screenCol * SQUARE_SIZE, screenRow * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+                    }
+
+                    // Highlight valid move/spawn locations (green)
+                    if (selectedPiece && selectedPos) {
+                        // For piece moves, check if move is legal and doesn't put own king in check
+                        const tempBoard = JSON.parse(JSON.stringify(board)); // Deep copy
+                        const tempPiece = tempBoard[selectedPos.row][selectedPos.col];
+                        tempBoard[selectedPos.row][selectedPos.col] = '';
+                        const originalDestPiece = tempBoard[row][col];
+                        tempBoard[row][col] = tempPiece;
+
+                        if (isValidMoveLogicOnly(selectedPos, { row, col }, selectedPiece, board) &&
+                            !isKingInCheck(currentPlayer, tempBoard)) {
+                            ctx.fillStyle = VALID_HIGHLIGHT_COLOR;
+                            ctx.fillRect(screenCol * SQUARE_SIZE, screenRow * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+                        }
+                    } else if (selectedCardIndex !== null && playerCards[currentPlayer][selectedCardIndex] !== 'k') {
+                        // For normal card spawns, check if valid and doesn't put own king in check
+                        const pieceTypeToSpawn = playerCards[currentPlayer][selectedCardIndex];
+                        if (isValidSpawn(currentPlayer, row, col, pieceTypeToSpawn, board)) {
+                            const tempBoard = JSON.parse(JSON.stringify(board));
+                            tempBoard[row][col] = currentPlayer + pieceTypeToSpawn;
+                            if (!isKingInCheck(currentPlayer, tempBoard)) {
+                                ctx.fillStyle = VALID_HIGHLIGHT_COLOR;
+                                ctx.fillRect(screenCol * SQUARE_SIZE, screenRow * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+                            }
+                        }
+                    } else if (selectedCardIndex !== null && playerCards[currentPlayer][selectedCardIndex] === 'k' && selectedCardIndexForKingAbility !== null) {
+                        // For King ability placement, check if valid and doesn't put own king in check
+                        const playerKingPos = findKingPosition(currentPlayer, board);
+                        if (playerKingPos && isAdjacent(playerKingPos, { row, col }) && !board[row][col]) {
+                            const pieceTypeToPlace = playerCards[currentPlayer][selectedCardIndexForKingAbility];
+                            const tempBoard = JSON.parse(JSON.stringify(board));
+                            tempBoard[row][col] = currentPlayer + pieceTypeToPlace;
+                            if (!isKingInCheck(currentPlayer, tempBoard)) {
+                                ctx.fillStyle = VALID_HIGHLIGHT_COLOR;
+                                ctx.fillRect(screenCol * SQUARE_SIZE, screenRow * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawHand() {
+            handDisplay.innerHTML = ''; // Clear previous hand display
+            const currentHand = playerCards[currentPlayer];
+
+            currentHand.forEach((pieceType, i) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.classList.add('hand-card');
+                cardDiv.dataset.index = i; // Store index for click handling
+
+                if (selectedCardIndex === i) {
+                    cardDiv.classList.add('selected');
+                }
+                if (selectedCardIndexForKingAbility === i) {
+                    cardDiv.classList.add('selected-king-ability');
+                }
+
+                const pieceKey = currentPlayer + pieceType;
+                if (pieceImages[pieceKey]) {
+                    const img = document.createElement('img');
+                    img.src = pieceImages[pieceKey].src;
+                    cardDiv.appendChild(img);
+                }
+
+                cardDiv.addEventListener('click', (event) => {
+                    const clickedIndex = parseInt(event.currentTarget.dataset.index);
+                    handleHandClick(clickedIndex);
+                });
+                handDisplay.appendChild(cardDiv);
+            });
+        }
+
+        // --- Game Logic Functions (Translated from Python) ---
+
+        function isValidMoveLogicOnly(start, end, piece, currentBoard) {
+            if (!piece) return false;
+            if (!(end.row >= 0 && end.row < 8 && end.col >= 0 && end.col < 8)) return false;
+            if (start.row === end.row && start.col === end.col) return false;
+
+            const destPiece = currentBoard[end.row][end.col];
+            if (destPiece && destPiece[0] === piece[0]) return false;
+
+            const pieceType = piece[1];
+            const dr = end.row - start.row;
+            const dc = end.col - start.col;
+
+            if (pieceType.toLowerCase() === 'p') { // Pawn
+                const direction = (piece[0] === 'b') ? 1 : -1;
+                if (dc === 0 && dr === direction && !destPiece) { // Move forward
+                    return true;
+                }
+                if (dc === 0 && dr === 2 * direction && !destPiece &&
+                    ((piece[0] === 'b' && start.row === 1) || (piece[0] === 'w' && start.row === 6))) { // Initial two-square move
+                    return !currentBoard[start.row + direction][start.col];
+                }
+                if (Math.abs(dc) === 1 && dr === direction && destPiece) { // Capture
+                    return true;
+                }
+            } else if (pieceType.toLowerCase() === 'r') { // Rook
+                if (dr === 0 || dc === 0) {
+                    return isPathClear(start, end, currentBoard);
+                }
+            } else if (pieceType.toLowerCase() === 'n') { // Knight
+                return (Math.abs(dr) === 2 && Math.abs(dc) === 1) || (Math.abs(dr) === 1 && Math.abs(dc) === 2);
+            } else if (pieceType.toLowerCase() === 'b') { // Bishop
+                if (Math.abs(dr) === Math.abs(dc)) {
+                    return isPathClear(start, end, currentBoard);
+                }
+            } else if (pieceType.toLowerCase() === 'q') { // Queen
+                if (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc)) {
+                    return isPathClear(start, end, currentBoard);
+                }
+            } else if (pieceType.toLowerCase() === 'k') { // King
+                return Math.max(Math.abs(dr), Math.abs(dc)) === 1;
+            }
+            return false;
+        }
+
+        function isPathClear(start, end, currentBoard) {
+            const dr = end.row - start.row;
+            const dc = end.col - start.col;
+            const steps = Math.max(Math.abs(dr), Math.abs(dc));
+            if (steps <= 1) return true;
+
+            const stepR = dr !== 0 ? dr / steps : 0;
+            const stepC = dc !== 0 ? dc / steps : 0;
+
+            for (let i = 1; i < steps; i++) {
+                if (currentBoard[start.row + i * stepR][start.col + i * stepC]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function promotePawn(row, piece) {
+            if (piece[1].toLowerCase() === 'p') {
+                if ((piece[0] === 'w' && row === 0) || (piece[0] === 'b' && row === 7)) {
+                    return piece[0] + 'q'; // Promote to queen
+                }
+            }
+            return piece;
+        }
+
+        function getPieceCount(player, pieceType, currentBoard) {
+            let count = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece && piece[0] === player && piece[1].toLowerCase() === pieceType.toLowerCase()) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function drawCard(player) {
+            if (ONE_DECK) {
+                if (playerCards[player].length < HAND_SIZE && sharedDeck.length > 0) {
+                    const pieceType = sharedDeck.splice(Math.floor(Math.random() * sharedDeck.length), 1)[0];
+                    playerCards[player].push(pieceType);
+                }
+            } else {
+                const availablePieces = Object.keys(playerHands[player]).filter(p => playerHands[player][p] > 0);
+                if (playerCards[player].length < HAND_SIZE && availablePieces.length > 0) {
+                    const pieceType = availablePieces[Math.floor(Math.random() * availablePieces.length)];
+                    playerCards[player].push(pieceType);
+                    playerHands[player][pieceType]--;
+                }
+            }
+        }
+
+        function findKingPosition(player, currentBoard) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece === player + 'k') {
+                        return { row: r, col: c };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function isAdjacent(pos1, pos2) {
+            return Math.abs(pos1.row - pos2.row) <= 1 && Math.abs(pos1.col - pos2.col) <= 1 &&
+                   !(pos1.row === pos2.row && pos1.col === pos2.col);
+        }
+
+        function isValidSpawn(player, row, col, pieceTypeToSpawn, currentBoard) {
+            // Check if spawn position is empty
+            if (currentBoard[row][col]) {
+                return false;
+            }
+
+            // Check placement row limit
+            if (player === 'w') {
+                if (row < 8 - PLACEMENT_ROWS) {
+                    return false;
+                }
+            } else if (player === 'b') {
+                if (row >= PLACEMENT_ROWS) {
+                    return false;
+                }
+            }
+
+            // Check piece limits (King card doesn't place a King piece)
+            if (pieceTypeToSpawn.toLowerCase() in PIECE_LIMITS && pieceTypeToSpawn.toLowerCase() !== 'k') {
+                const currentCount = getPieceCount(player, pieceTypeToSpawn, currentBoard);
+                if (currentCount >= PIECE_LIMITS[pieceTypeToSpawn.toLowerCase()]) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function isKingInCheck(player, currentBoard) {
+            const kingPos = findKingPosition(player, currentBoard);
+            if (!kingPos) {
+                return false; // King is not on the board, can't be in check
+            }
+
+            const opponent = (player === 'w') ? 'b' : 'w';
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece && piece[0] === opponent) {
+                        if (isValidMoveLogicOnly({ row: r, col: c }, kingPos, piece, currentBoard)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function getAllLegalMoves(player, currentBoard) {
+            const legalMoves = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = currentBoard[r][c];
+                    if (piece && piece[0] === player) {
+                        for (let targetR = 0; targetR < 8; targetR++) {
+                            for (let targetC = 0; targetC < 8; targetC++) {
+                                const tempBoard = JSON.parse(JSON.stringify(currentBoard));
+                                const tempPiece = tempBoard[r][c];
+                                tempBoard[r][c] = '';
+                                tempBoard[targetR][targetC] = tempPiece; // Move piece on temp board
+
+                                if (isValidMoveLogicOnly({ row: r, col: c }, { row: targetR, col: targetC }, piece, currentBoard)) {
+                                    if (!isKingInCheck(player, tempBoard)) {
+                                        legalMoves.push({ start: { row: r, col: c }, end: { row: targetR, col: targetC } });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return legalMoves;
+        }
+
+        function getAllLegalSpawns(player, currentBoard) {
+            const legalSpawns = [];
+
+            // Check normal card spawns
+            playerCards[player].forEach(cardType => {
+                if (cardType === 'k') return; // King card is special, not a direct spawn
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        if (isValidSpawn(player, r, c, cardType, currentBoard)) {
+                            const tempBoard = JSON.parse(JSON.stringify(currentBoard));
+                            tempBoard[r][c] = player + cardType;
+                            if (!isKingInCheck(player, tempBoard)) {
+                                legalSpawns.push({ type: cardType, pos: { row: r, col: c } });
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Check King ability spawns
+            if (playerCards[player].includes('k')) {
+                const kingPos = findKingPosition(player, currentBoard);
+                if (kingPos) {
+                    for (let rOffset = -1; rOffset <= 1; rOffset++) {
+                        for (let cOffset = -1; cOffset <= 1; cOffset++) {
+                            if (rOffset === 0 && cOffset === 0) continue;
+
+                            const targetR = kingPos.row + rOffset;
+                            const targetC = kingPos.col + cOffset;
+
+                            if (targetR >= 0 && targetR < 8 && targetC >= 0 && targetC < 8 && !currentBoard[targetR][targetC]) {
+                                // If king card is selected, any other card in hand can be placed
+                                playerCards[player].forEach(pieceTypeToPlace => {
+                                    if (pieceTypeToPlace !== 'k') { // Can't place another king with king ability
+                                        const tempBoard = JSON.parse(JSON.stringify(currentBoard));
+                                        tempBoard[targetR][targetC] = player + pieceTypeToPlace;
+                                        if (!isKingInCheck(player, tempBoard)) {
+                                            legalSpawns.push({ type: 'k_ability', pieceType: pieceTypeToPlace, pos: { row: targetR, col: targetC } });
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            return legalSpawns;
+        }
+
+
+        function isCheckmate(player) {
+            if (isKingInCheck(player, board)) {
+                // If in check, check if there are any legal moves or spawns to escape
+                if (getAllLegalMoves(player, board).length === 0 && getAllLegalSpawns(player, board).length === 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function isStalemate(player) {
+            if (!isKingInCheck(player, board)) {
+                // If not in check, check if there are any legal moves or spawns
+                if (getAllLegalMoves(player, board).length === 0 && getAllLegalSpawns(player, board).length === 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- Game State Management ---
+        function setupGame() {
+            currentPlayer = 'b'; // Makes white first
+            gameOver = false;
+            gameResultMessage = "";
+
+            // Reset board
+            board = [
+                ['br', 'bn', 'bb', 'bq', 'bk', 'bb', 'bn', 'br'],
+                ['bp', 'bp', 'bp', 'bp', 'bp', 'bp', 'bp', 'bp'],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['wp', 'wp', 'wp', 'wp', 'wp', 'wp', 'wp', 'wp'],
+                ['wr', 'wn', 'wb', 'wq', 'wk', 'wb', 'wn', 'wr']
+            ];
+
+            // Reset hands and cards, including kings
+            playerHands = {
+                'w': {'r': 2, 'n': 2, 'b': 2, 'q': 2, 'k': 2, 'p': 18},
+                'b': {'r': 2, 'n': 2, 'b': 2, 'q': 2, 'k': 2, 'p': 18}
+            };
+            playerCards = { 'w': [], 'b': [] };
+
+            if (ONE_DECK) {
+                sharedDeck = [];
+                for (const playerType in playerHands) {
+                    for (const pieceType in playerHands[playerType]) {
+                        for (let i = 0; i < playerHands[playerType][pieceType]; i++) {
+                            sharedDeck.push(pieceType);
+                        }
+                    }
+                }
+                // Shuffle shared deck
+                for (let i = sharedDeck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [sharedDeck[i], sharedDeck[j]] = [sharedDeck[j], sharedDeck[i]];
+                }
+            }
+
+            // Initial card draws using HAND_SIZE
+            for (const player of ['w', 'b']) {
+                for (let i = 0; i < HAND_SIZE; i++) {
+                    drawCard(player);
+                }
+            }
+            drawBoard();
+            drawHand(); // Ensure hand is drawn after setup
+        }
+
+        function endTurn() {
+            // Clear selections
+            selectedPiece = null;
+            selectedPos = null;
+            selectedCardIndex = null;
+            selectedCardIndexForKingAbility = null;
+
+            // Switch player
+            currentPlayer = (currentPlayer === 'w') ? 'b' : 'w';
+
+            // Draw card for new player until hand size is reached
+            while (playerCards[currentPlayer].length < HAND_SIZE) {
+                drawCard(currentPlayer);
+            }
+
+            // Check for game over conditions for the new player
+            if (isCheckmate(currentPlayer)) {
+                gameOver = true;
+                const winner = (currentPlayer === 'b') ? 'White' : 'Black';
+                gameResultMessage = `${winner} Wins by Checkmate!`;
+            } else if (isStalemate(currentPlayer)) {
+                gameOver = true;
+                gameResultMessage = "Stalemate!";
+            }
+
+            drawBoard(); // Redraw board for new player's perspective
+            drawHand(); // Redraw hand for new player
+        }
+
+        // --- Event Handlers ---
+        function handleCanvasClick(event) {
+            if (gameOver) return; // Do not process clicks if game is over
+
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            let col = Math.floor(x / SQUARE_SIZE);
+            let row = Math.floor(y / SQUARE_SIZE);
+
+            // Adjust coordinates based on current player's perspective
+            if (currentPlayer === 'b') {
+                row = 7 - row;
+                col = 7 - col;
+            }
+
+            const clickedPiece = board[row][col];
+
+            if (selectedCardIndex !== null && playerCards[currentPlayer][selectedCardIndex] === 'k') {
+                // King card is selected, trying to place a piece with its ability
+                if (selectedCardIndexForKingAbility !== null) {
+                    const pieceTypeToPlace = playerCards[currentPlayer][selectedCardIndexForKingAbility];
+                    const playerKingPos = findKingPosition(currentPlayer, board);
+
+                    let isValidKingAbilityPlacement = false;
+                    if (playerKingPos && isAdjacent(playerKingPos, { row, col }) && !board[row][col]) {
+                        const tempBoard = JSON.parse(JSON.stringify(board));
+                        tempBoard[row][col] = currentPlayer + pieceTypeToPlace;
+                        if (!isKingInCheck(currentPlayer, tempBoard)) {
+                            isValidKingAbilityPlacement = true;
+                        }
+                    }
+
+                    if (isValidKingAbilityPlacement) {
+                        board[row][col] = currentPlayer + pieceTypeToPlace;
+
+                        // Remove both cards from hand. Remove higher index first to avoid shifting issues.
+                        const cardsToRemoveIndices = [selectedCardIndex, selectedCardIndexForKingAbility].sort((a, b) => b - a);
+                        cardsToRemoveIndices.forEach(idx => playerCards[currentPlayer].splice(idx, 1));
+
+                        endTurn();
+                    } else {
+                        // Invalid King ability placement - deselect all
+                        selectedCardIndex = null;
+                        selectedCardIndexForKingAbility = null;
+                        selectedPiece = null;
+                        selectedPos = null;
+                        drawHand(); // Update hand display to remove highlights
+                        drawBoard(); // Redraw board to remove highlights
+                    }
+                }
+                // If King card is selected but no second card for ability chosen yet, do nothing on board click.
+                // Wait for second card selection.
+            } else if (selectedCardIndex !== null) {
+                // Spawning a piece (normal card)
+                const pieceTypeToSpawn = playerCards[currentPlayer][selectedCardIndex];
+
+                let isValidNormalSpawn = false;
+                if (isValidSpawn(currentPlayer, row, col, pieceTypeToSpawn, board)) {
+                    const tempBoard = JSON.parse(JSON.stringify(board));
+                    tempBoard[row][col] = currentPlayer + pieceTypeToSpawn;
+                    if (!isKingInCheck(currentPlayer, tempBoard)) {
+                        isValidNormalSpawn = true;
+                    }
+                }
+
+                if (isValidNormalSpawn) {
+                    board[row][col] = currentPlayer + pieceTypeToSpawn;
+                    playerCards[currentPlayer].splice(selectedCardIndex, 1); // Remove the card
+
+                    endTurn();
+                } else {
+                    // Deselect invalid spawn
+                    selectedCardIndex = null;
+                    selectedPiece = null;
+                    selectedPos = null;
+                    drawHand(); // Update hand display to remove highlights
+                    drawBoard(); // Redraw board to remove highlights
+                }
+            } else if (selectedPiece) {
+                // Moving a piece
+                const startPos = selectedPos;
+                const endPos = { row, col };
+
+                // Test move on a temporary board to check for self-check
+                const tempBoard = JSON.parse(JSON.stringify(board));
+                const tempPiece = tempBoard[startPos.row][startPos.col];
+                tempBoard[startPos.row][startPos.col] = '';
+                tempBoard[endPos.row][endPos.col] = tempPiece; // Move piece on temp board
+
+                let isValidMoveAndNotCheck = false;
+                if (isValidMoveLogicOnly(startPos, endPos, selectedPiece, board) &&
+                    !isKingInCheck(currentPlayer, tempBoard)) {
+                    isValidMoveAndNotCheck = true;
+                }
+
+                if (isValidMoveAndNotCheck) {
+                    board[endPos.row][endPos.col] = promotePawn(endPos.row, selectedPiece);
+                    board[startPos.row][startPos.col] = '';
+
+                    endTurn();
+                } else {
+                    // Deselect invalid move
+                    selectedPiece = null;
+                    selectedPos = null;
+                    drawBoard(); // Redraw board to remove highlights
+                }
+            } else {
+                // Selecting a piece
+                if (clickedPiece && clickedPiece[0] === currentPlayer) {
+                    selectedPiece = clickedPiece;
+                    selectedPos = { row, col };
+                    selectedCardIndex = null;
+                    selectedCardIndexForKingAbility = null;
+                    drawHand(); // Clear hand highlights
+                    drawBoard(); // Redraw board to show selected piece highlight
+                }
+            }
+        }
+
+        function handleHandClick(clickedIndex) {
+            if (gameOver) return;
+
+            const clickedCardType = playerCards[currentPlayer][clickedIndex];
+
+            if (selectedCardIndex !== null && playerCards[currentPlayer][selectedCardIndex] === 'k') {
+                // King card is already selected
+                if (clickedCardType !== 'k') { // Select a non-king card for the ability
+                    selectedCardIndexForKingAbility = clickedIndex;
+                    selectedPiece = null;
+                    selectedPos = null;
+                } else { // Clicked King card again, deselect everything
+                    selectedCardIndex = null;
+                    selectedCardIndexForKingAbility = null;
+                    selectedPiece = null;
+                    selectedPos = null;
+                }
+            } else {
+                // Normal card selection or initial King card selection
+                selectedCardIndex = clickedIndex;
+                selectedCardIndexForKingAbility = null; // Reset second card selection
+                selectedPiece = null;
+                selectedPos = null;
+            }
+            drawHand(); // Update hand display to show highlights
+            drawBoard(); // Update board display to show potential valid spawns
+        }
+
+        // --- Title Screen Logic ---
+        startGameButton.addEventListener('click', () => {
+            let isValid = true;
+            validationMessageElement.textContent = ""; // Clear previous messages
+
+            // Validate Placement Rows
+            let tempPlacementRows;
+            try {
+                tempPlacementRows = parseInt(placementRowsInput.value);
+                if (isNaN(tempPlacementRows) || tempPlacementRows < 1 || tempPlacementRows > 8) {
+                    validationMessageElement.textContent += "Placement Rows must be a number between 1 and 8. ";
+                    isValid = false;
+                } else {
+                    PLACEMENT_ROWS = tempPlacementRows;
+                }
+            } catch (e) {
+                validationMessageElement.textContent += "Invalid Placement Rows. Please enter a number. ";
+                isValid = false;
+            }
+
+            // Validate Hand Size
+            let tempHandSize;
+            try {
+                tempHandSize = parseInt(handSizeInput.value);
+                if (isNaN(tempHandSize) || tempHandSize < 1 || tempHandSize > 8) {
+                    validationMessageElement.textContent += "Hand Size must be a number between 1 and 8. ";
+                    isValid = false;
+                } else {
+                    HAND_SIZE = tempHandSize;
+                }
+            } catch (e) {
+                validationMessageElement.textContent += "Invalid Hand Size. Please enter a number. ";
+                isValid = false;
+            }
+
+            // Validate Piece Limits
+            const tempPieceLimits = {};
+            for (const pieceType in pieceLimitInputs) {
+                try {
+                    const limit = parseInt(pieceLimitInputs[pieceType].value);
+                    if (isNaN(limit) || limit < 0) {
+                        validationMessageElement.textContent += `${pieceType.toUpperCase()} limit must be a non-negative number. `;
+                        isValid = false;
+                    }
+                    if (pieceType === 'k' && limit > 1) {
+                        validationMessageElement.textContent += "King limit on board should typically be 1. ";
+                    }
+                    tempPieceLimits[pieceType] = limit;
+                } catch (e) {
+                    validationMessageElement.textContent += `Invalid ${pieceType.toUpperCase()} limit. Please enter a number. `;
+                    isValid = false;
+                }
+            }
+            if (isValid) {
+                Object.assign(PIECE_LIMITS, tempPieceLimits); // Apply valid limits
+            }
+
+            ONE_DECK = oneDeckCheckbox.checked;
+
+            if (isValid) {
+                gameStarted = true;
+                titleScreen.classList.add('hidden');
+                setupGame();
+                gameLoop(); // Start the game loop
+            }
+        });
+
+        returnToTitleButton.addEventListener('click', () => {
+            gameOverScreen.classList.add('hidden');
+            titleScreen.classList.remove('hidden');
+            gameStarted = false; // Ensures title screen is shown and game loop will return
+        });
+
+        canvas.addEventListener('click', handleCanvasClick);
+
+        // --- Game Loop ---
+        function gameLoop() {
+            if (!gameStarted) {
+                // If game is not started (e.g., returned to title), stop loop
+                return;
+            }
+
+            if (gameOver) {
+                gameOverScreen.classList.remove('hidden');
+                gameOverMessageElement.textContent = gameResultMessage;
+            } else {
+                drawBoard();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initial setup
+        window.onload = async () => {
+            await loadImages(); // Ensure all images are loaded before starting
+            // Set initial values for input fields based on global variables
+            placementRowsInput.value = PLACEMENT_ROWS;
+            handSizeInput.value = HAND_SIZE;
+            oneDeckCheckbox.checked = ONE_DECK;
+            for (const pieceType in PIECE_LIMITS) {
+                if (pieceLimitInputs[pieceType]) {
+                    pieceLimitInputs[pieceType].value = PIECE_LIMITS[pieceType];
+                }
+            }
+            // The game loop will be started by the "Start Game" button
+        };
+
+    </script>
+</body>
+</html>
